@@ -374,13 +374,13 @@ class NativeSessionStorage implements SessionStorageInterface
         if (!$saveHandler instanceof AbstractProxy && $saveHandler instanceof \SessionHandlerInterface) {
             $saveHandler = new SessionHandlerProxy($saveHandler);
         } elseif (!$saveHandler instanceof AbstractProxy) {
-            $saveHandler = version_compare(phpversion(), '5.4.0', '>=') ?
+            $saveHandler = $this->useSessionHandlerInterface() ?
                 new SessionHandlerProxy(new \SessionHandler()) : new NativeProxy();
         }
         $this->saveHandler = $saveHandler;
 
         if ($this->saveHandler instanceof \SessionHandlerInterface) {
-            if (version_compare(phpversion(), '5.4.0', '>=')) {
+            if ($this->useSessionHandlerInterface()) {
                 session_set_save_handler($this->saveHandler, false);
             } else {
                 session_set_save_handler(
@@ -394,6 +394,21 @@ class NativeSessionStorage implements SessionStorageInterface
             }
         }
     }
+    
+    /**
+     * Is it possible to use SessionHandlerInterface for setting save handler (PHP 5.4.0)
+     * @return Boolean  
+     */
+    protected function useSessionHandlerInterface()
+    {
+        // Zend Guard Loader 3.3 segfaults using session_set_save_handler with SessionHandlerInterface
+        // http://forums.zend.com/viewtopic.php?f=57&t=111193
+        $zend_loader_bug = extension_loaded('Zend Guard Loader') &&
+                           function_exists('zend_loader_version') &&
+                           version_compare(zend_loader_version(), '3.3', '==');
+
+        return version_compare(phpversion(), '5.4.0', '>=') && !$zend_loader_bug;
+    }    
 
     /**
      * Load the session with attributes.
